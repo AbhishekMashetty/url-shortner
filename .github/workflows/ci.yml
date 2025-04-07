@@ -1,4 +1,4 @@
-name: Go CI + Docker Push
+name: url-shortner CI/CD
 
 on:
   push:
