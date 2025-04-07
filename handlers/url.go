@@ -37,12 +37,15 @@ func (h *URLHandler) Home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
-	// Get tenant ID from subdomain
-	host := r.Host // e.g. "a.url-short.com"
-	tenantID := strings.Split(host, ".")[0]
+	host := r.Host
+	parts := strings.Split(host, ".")
+	if len(parts) < 2 || parts[0] == "" {
+		http.Error(w, "Missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	tenantID := parts[0]
 	store := h.Tenants.GetStore(tenantID)
 
-	// Parse form
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
@@ -75,9 +78,14 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
-	// Get tenant ID from subdomain
-	host := r.Host // e.g. "a.url-short.com"
-	tenantID := strings.Split(host, ".")[0]
+	// Enforce tenant from subdomain
+	host := r.Host
+	parts := strings.Split(host, ".")
+	if len(parts) < 2 || parts[0] == "" {
+		http.Error(w, "Missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	tenantID := parts[0]
 	store := h.Tenants.GetStore(tenantID)
 
 	vars := mux.Vars(r)
