@@ -13,11 +13,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const testConnStr = os.Getenv("TEST_CONN_STR")
-
 // "postgres://abhishekmasetty@localhost:5432/url_shortner_test?sslmode=disable"
 
 func setupTestHandler(t *testing.T) *URLHandler {
+	testConnStr := os.Getenv("TEST_CONN_STR")
 	db, err := store.NewPostgresStore(testConnStr)
 	if err != nil {
 		t.Fatalf("Failed to connect to test DB: %v", err)
