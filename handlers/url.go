@@ -3,40 +3,35 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strings"
 
-	"github.com/AbhishekMashetty/url-shortner/store"
 	"github.com/AbhishekMashetty/url-shortner/utils"
 	"github.com/gorilla/mux"
 )
 
-type URLHandler struct {
-	Tenants *store.TenantStore
+type Storage interface {
+	Save(shortCode, originalURL, tenant string) error
+	Get(shortCode, tenant string) (string, bool)
 }
 
-func NewURLHandler(ts *store.TenantStore) *URLHandler {
-	return &URLHandler{Tenants: ts}
+type URLHandler struct {
+	store Storage
+}
+
+func NewURLHandler(s Storage) *URLHandler {
+	return &URLHandler{store: s}
 }
 
 func (h *URLHandler) Home(w http.ResponseWriter, r *http.Request) {
-	html := `
-		<html>
-		<head><title>URL Shortener</title></head>
-		<body>
-			<h1>URL Shortener</h1>
-			<form method="POST" action="/shorten">
-				<input type="text" name="url" placeholder="Enter URL" style="width: 300px;" required />
-				<input type="submit" value="Shorten">
-			</form>
-		</body>
-		</html>
-	`
+	tmpl := template.Must(template.ParseFiles("templates/home.html"))
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, html)
+	tmpl.Execute(w, nil)
 }
 
 func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
+	// Extract tenant from subdomain
 	host := r.Host
 	parts := strings.Split(host, ".")
 	if len(parts) < 2 || parts[0] == "" {
@@ -44,11 +39,11 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tenantID := parts[0]
-	store := h.Tenants.GetStore(tenantID)
 
+	// Parse form
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, "Invalid form", http.StatusBadRequest)
+		http.Error(w, "Invalid form submission", http.StatusBadRequest)
 		return
 	}
 
@@ -58,11 +53,16 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate and save short code
 	shortCode := utils.GenerateShortCode()
-	store.Save(shortCode, originalURL)
+	if err := h.store.Save(shortCode, originalURL, tenantID); err != nil {
+		http.Error(w, "Failed to save URL", http.StatusInternalServerError)
+		return
+	}
 
 	shortURL := fmt.Sprintf("http://%s/%s", r.Host, shortCode)
 
+	// API response
 	if r.Header.Get("Accept") == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
@@ -72,13 +72,16 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	html := fmt.Sprintf(`<a href="%s">%s</a>`, shortURL, shortURL)
+	// HTML template response
+	tmpl := template.Must(template.ParseFiles("templates/result.html"))
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, html)
+	tmpl.Execute(w, map[string]string{
+		"ShortURL": shortURL,
+	})
 }
 
 func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
-	// Enforce tenant from subdomain
+	// Extract tenant from subdomain
 	host := r.Host
 	parts := strings.Split(host, ".")
 	if len(parts) < 2 || parts[0] == "" {
@@ -86,13 +89,15 @@ func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tenantID := parts[0]
-	store := h.Tenants.GetStore(tenantID)
 
+	// Get short code from path
 	vars := mux.Vars(r)
 	shortCode := vars["shortCode"]
 
-	originalURL, ok := store.Get(shortCode)
+	// Lookup in store
+	originalURL, ok := h.store.Get(shortCode, tenantID)
 	if !ok {
+		// Return JSON if API client
 		if r.Header.Get("Accept") == "application/json" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)

@@ -5,14 +5,23 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/AbhishekMashetty/url-shortner/handlers"
 	"github.com/AbhishekMashetty/url-shortner/internal"
+	"github.com/AbhishekMashetty/url-shortner/store"
 )
 
 func main() {
-	r := internal.SetupRouter()
+	connStr := "postgres://abhishekmasetty@localhost:5432/url_shortner?sslmode=disable"
+	store, err := store.NewPostgresStore(connStr)
+	if err != nil {
+		log.Fatalf("Failed to connect to DB: %v", err)
+	}
 
-	fmt.Println("Server running at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	handler := handlers.NewURLHandler(store)
+	router := internal.SetupRouter(handler)
+
+	fmt.Println("🚀 Server is running at http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
 // var urlStore = make(map[string]string)

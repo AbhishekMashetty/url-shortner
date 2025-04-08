@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shortened!</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      text-align: center;
+      padding: 40px;
+    }
+    .link-box {
+      margin-top: 20px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      display: inline-block;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    input {
+      width: 400px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>✅ URL Shortened!</h1>
+  <div class="link-box">
+    <p>Here’s your new link:</p>
+    <input type="text" value="{{ .ShortURL }}" readonly onclick="this.select();document.execCommand('copy');" />
+    <p><small>(click to copy)</small></p>
+  </div>
+  <p><a href="/">Shorten another</a></p>
+</body>
+</html>
